@@ -6,6 +6,14 @@ pipeline {
         KUBECONFIG = 'C:\\Users\\spand\\.kube\\config'
     }
 
+    parameters {
+        choice(
+            name: 'TARGET_VERSION',
+            choices: ['BLUE', 'GREEN'],
+            description: 'Select which version should receive traffic'
+        )
+    }
+
     stages {
 
         stage('Build Blue Image') {
@@ -20,7 +28,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Blue and Green') {
+        stage('Deploy Both Versions') {
             steps {
                 bat 'kubectl apply -f blue-deployment.yaml'
                 bat 'kubectl apply -f green-deployment.yaml'
@@ -29,10 +37,23 @@ pipeline {
             }
         }
 
-        stage('Configure Blue Traffic') {
+        stage('Automated Traffic Switching') {
             steps {
-                bat 'kubectl apply -f service.yaml'
-                bat 'kubectl get services'
+                script {
+                    if (params.TARGET_VERSION == 'GREEN') {
+                        bat 'kubectl apply -f service-green.yaml'
+                        echo 'Traffic successfully switched to GREEN'
+                    } else {
+                        bat 'kubectl apply -f service.yaml'
+                        echo 'Traffic successfully switched to BLUE'
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                bat 'kubectl describe service blue-green-service'
                 bat 'kubectl get pods'
             }
         }
